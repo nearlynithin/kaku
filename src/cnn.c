@@ -146,3 +146,15 @@ f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena) {
 
   return totals;
 }
+
+f32 cross_entropy_loss(f32 *probs, u64 label) { return -logf(probs[label]); }
+
+u64 accuracy(f32 *probs, u64 nodes, u64 label) {
+  u64 best = 0;
+  for (u64 i = 1; i < nodes; i++) {
+    if (probs[i] > probs[best])
+      best = i;
+  }
+
+  return (best == label) ? 1 : 0;
+}
