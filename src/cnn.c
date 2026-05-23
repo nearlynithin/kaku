@@ -1,11 +1,10 @@
 #include "cnn.h"
 #include "arena.h"
 #include <float.h>
+#include <math.h>
 #include <stdlib.h>
-#include <time.h>
 
 f32 random_weight() {
-  srand(1000 * time(NULL));
   f32 r = (f32)rand() / (f32)RAND_MAX;
   r = ((2.0f * r) - 1) / 9;
   return r;
@@ -102,4 +101,48 @@ void max_pool(u64 n, feature_map *fm) {
   }
   fm->width = out_w;
   fm->height = out_h;
+}
+
+softmax *softmax_init(u64 input_len, u64 nodes, mem_arena *arena) {
+  softmax *sm = PUSH_STRUCT(arena, softmax);
+  sm->input_len = input_len;
+  sm->nodes = nodes;
+
+  sm->weights = PUSH_ARRAY(arena, f32, input_len * nodes);
+  sm->biases = PUSH_ARRAY(arena, f32, nodes);
+
+  for (u64 i = 0; i < input_len * nodes; i++)
+    sm->weights[i] = random_weight();
+
+  return sm;
+}
+
+f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena) {
+  f32 *totals = PUSH_ARRAY(arena, f32, sm->nodes);
+
+  for (u64 n = 0; n < sm->nodes; n++) {
+
+    f32 total = sm->biases[n];
+    for (u64 i = 0; i < sm->input_len; i++)
+      total += fm->data[i] * sm->weights[i * sm->nodes + n];
+
+    totals[n] = total;
+  }
+
+  f32 max = totals[0];
+  for (u64 i = 1; i < sm->nodes; i++)
+    if (totals[i] > max)
+      max = totals[i];
+
+  f32 sum = 0.0f;
+  for (u64 i = 0; i < sm->nodes; i++) {
+    f32 ex = expf(totals[i] - max);
+    sum += ex;
+    totals[i] = ex;
+  }
+
+  for (u64 i = 0; i < sm->nodes; i++)
+    totals[i] = totals[i] / sum;
+
+  return totals;
 }

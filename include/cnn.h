@@ -22,6 +22,13 @@ typedef struct {
   u64 depth;
 } feature_map;
 
+typedef struct {
+  f32 *weights;
+  f32 *biases;
+  u64 input_len;
+  u64 nodes;
+} softmax;
+
 void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
                mem_arena *arena);
 feature_map *forward(conv *conv, dataset *data, mem_arena *arena,
@@ -30,5 +37,7 @@ feature_map *forward(conv *conv, dataset *data, mem_arena *arena,
 f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y);
 
 void max_pool(u64 n, feature_map *fm);
+softmax *softmax_init(u64 input_len, u64 nodes, mem_arena *arena);
+f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena);
 
 #endif
