@@ -14,7 +14,7 @@ int main() {
   conv_init(&conv, 3, 3, 8, perm_arena);
   dataset *data = load_dataset("dataset/t10k-images.idx3-ubyte", perm_arena);
 
-  feature_map *fm = forward(&conv, data, temp_arena, 1);
+  feature_map *fm = conv_forward(&conv, data, temp_arena, 1);
   max_pool(2, fm);
 
   softmax *sm =

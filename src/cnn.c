@@ -29,8 +29,8 @@ void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
   }
 }
 
-feature_map *forward(conv *conv, dataset *data, mem_arena *arena,
-                     u64 image_index) {
+feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
+                          u64 image_index) {
 
   u64 out_h = data->rows - 2;
   u64 out_w = data->cols - 2;
