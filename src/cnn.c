@@ -71,7 +71,7 @@ f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y) {
   return sum;
 }
 
-void max_pool(u64 n, feature_map *fm, mem_arena *arena) {
+void max_pool(u64 n, feature_map *fm) {
 
   u64 out_w = fm->width / 2;
   u64 out_h = fm->height / 2;

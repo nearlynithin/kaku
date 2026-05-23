@@ -11,7 +11,7 @@ int main() {
   dataset *data = load_dataset("dataset/t10k-images.idx3-ubyte", perm_arena);
 
   feature_map *fm = forward(&conv, data, temp_arena, 1);
-  max_pool(2, fm, temp_arena);
+  max_pool(2, fm);
 
   return 0;
 }

@@ -29,6 +29,6 @@ feature_map *forward(conv *conv, dataset *data, mem_arena *arena,
 
 f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y);
 
-void max_pool(u64 n, feature_map *fm, mem_arena *arena);
+void max_pool(u64 n, feature_map *fm);
 
 #endif
