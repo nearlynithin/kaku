@@ -103,8 +103,7 @@ void max_pool(u64 n, feature_map *fm) {
   fm->height = out_h;
 }
 
-softmax *softmax_init(u64 input_len, u64 nodes, mem_arena *arena) {
-  softmax *sm = PUSH_STRUCT(arena, softmax);
+void softmax_init(softmax *sm, u64 input_len, u64 nodes, mem_arena *arena) {
   sm->input_len = input_len;
   sm->nodes = nodes;
 
@@ -113,8 +112,6 @@ softmax *softmax_init(u64 input_len, u64 nodes, mem_arena *arena) {
 
   for (u64 i = 0; i < input_len * nodes; i++)
     sm->weights[i] = random_weight();
-
-  return sm;
 }
 
 f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena) {
@@ -157,4 +154,19 @@ u64 accuracy(f32 *probs, u64 nodes, u64 label) {
   }
 
   return (best == label) ? 1 : 0;
+}
+
+prediction forward(conv *conv, softmax *sm, dataset *data, u64 image_index,
+                   u64 label, mem_arena *arena) {
+
+  feature_map *fm = conv_forward(conv, data, arena, image_index);
+  max_pool(2, fm);
+  f32 *probs = softmax_forward(sm, fm, arena);
+
+  prediction p;
+  p.probabilites = probs;
+  p.loss = cross_entropy_loss(probs, label);
+  p.accuracy = accuracy(probs, 10, label);
+
+  return p;
 }

@@ -35,6 +35,9 @@ typedef struct {
   u64 accuracy;
 } prediction;
 
+prediction forward(conv *conv, softmax *sm, dataset *data, u64 image_index,
+                   u64 label, mem_arena *arena);
+
 void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
                mem_arena *arena);
 feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
@@ -43,7 +46,7 @@ feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
 f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y);
 
 void max_pool(u64 n, feature_map *fm);
-softmax *softmax_init(u64 input_len, u64 nodes, mem_arena *arena);
+void softmax_init(softmax *sm, u64 input_len, u64 nodes, mem_arena *arena);
 f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena);
 
 f32 cross_entropy_loss(f32 *probs, u64 label);
