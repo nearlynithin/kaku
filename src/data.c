@@ -86,38 +86,56 @@ void images_head(char *s) {
   arena_destroy(scratch);
 }
 
-dataset *load_dataset(char *s, mem_arena *arena) {
+dataset *load_dataset(char *image_path, char *label_path, mem_arena *arena) {
 
-  FILE *file = fopen(s, "rb");
+  FILE *image_file = fopen(image_path, "rb");
+  if (!image_file) {
+    printf("Error reading image_file %s\n", image_path);
+    exit(1);
+  }
 
-  if (!file) {
-    printf("Error reading file %s\n", s);
+  FILE *label_file = fopen(label_path, "rb");
+  if (!label_file) {
+    printf("Error reading label_file %s\n", label_path);
     exit(1);
   }
 
   dataset *data = PUSH_STRUCT(arena, dataset);
 
-  u32 magic_number = read_u32_be(file);
-  u32 count = read_u32_be(file);
-  u32 rows = read_u32_be(file);
-  u32 cols = read_u32_be(file);
+  u32 image_magic_number = read_u32_be(image_file);
+  u32 count = read_u32_be(image_file);
+  u32 rows = read_u32_be(image_file);
+  u32 cols = read_u32_be(image_file);
+  u32 label_magic_number = read_u32_be(label_file);
+  u32 label_count = read_u32_be(label_file);
 
-  printf("Magic number : %u\n", magic_number);
+  printf("IMAGE FILE:\n");
+  printf("Magic number : %u\n", image_magic_number);
   printf("Number of items : %u\n", count);
   printf("Number of rows : %u\n", rows);
   printf("Number of columns : %u\n", cols);
 
+  printf("LABEL FILE:\n");
+  printf("Magic number : %u\n", label_magic_number);
+  printf("Number of labels: %u\n", label_count);
+
+  if (count != label_count) {
+    printf("ERROR: Image count != Label count\n");
+    exit(0);
+  }
+
   u8 *images = PUSH_ARRAY(arena, u8, rows * cols * count);
-  fread(images, sizeof(u8), rows * cols * count, file);
+  fread(images, sizeof(u8), rows * cols * count, image_file);
+  u8 *labels = PUSH_ARRAY(arena, u8, label_count);
+  fread(images, sizeof(u8), label_count, label_file);
 
   data->images = images;
   data->rows = rows;
   data->cols = cols;
   data->count = count;
+  data->labels = labels;
 
-  // printing first 10 images
-  // print_image(images, 10);
-
-  fclose(file);
+  fclose(image_file);
+  fclose(label_file);
   return data;
 }

@@ -8,10 +8,11 @@ typedef struct {
   u64 rows;
   u64 cols;
   u8 *images;
+  u8 *labels;
 } dataset;
 
 void labels_head(char *s);
 void images_head(char *s);
-dataset *load_dataset(char *s, mem_arena *arena);
+dataset *load_dataset(char *image_path, char *label_path, mem_arena *arena);
 
 #endif
