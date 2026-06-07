@@ -116,32 +116,102 @@ void softmax_init(softmax *sm, u64 input_len, u64 nodes, mem_arena *arena) {
 
 f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena) {
   f32 *totals = PUSH_ARRAY(arena, f32, sm->nodes);
+  f32 *probs = PUSH_ARRAY(arena, f32, sm->nodes);
+
+  sm->last_input = fm->data;
+  sm->last_width = fm->width;
+  sm->last_height = fm->height;
+  sm->last_depth = fm->depth;
 
   for (u64 n = 0; n < sm->nodes; n++) {
-
     f32 total = sm->biases[n];
     for (u64 i = 0; i < sm->input_len; i++)
       total += fm->data[i] * sm->weights[i * sm->nodes + n];
 
     totals[n] = total;
+    probs[n] = total;
   }
 
-  f32 max = totals[0];
+  sm->last_totals = totals;
+
+  f32 max = probs[0];
   for (u64 i = 1; i < sm->nodes; i++)
-    if (totals[i] > max)
-      max = totals[i];
+    if (probs[i] > max)
+      max = probs[i];
 
   f32 sum = 0.0f;
   for (u64 i = 0; i < sm->nodes; i++) {
-    f32 ex = expf(totals[i] - max);
+    f32 ex = expf(probs[i] - max);
     sum += ex;
-    totals[i] = ex;
+    probs[i] = ex;
   }
 
   for (u64 i = 0; i < sm->nodes; i++)
-    totals[i] = totals[i] / sum;
+    probs[i] = probs[i] / sum;
 
-  return totals;
+  return probs;
+}
+
+feature_map *softmax_backprop(softmax *sm, f32 *d_L_d_out, f32 lr,
+                              mem_arena *arena) {
+
+  u64 target = 0;
+  f32 gradient = 0.0f;
+  feature_map *grad = PUSH_STRUCT(arena, feature_map);
+  grad->data = PUSH_ARRAY(arena, f32, sm->input_len);
+  f32 *t_exp = PUSH_ARRAY(arena, f32, sm->nodes);
+  f32 *d_out_d_t = PUSH_ARRAY(arena, f32, sm->nodes);
+  f32 *d_L_d_t = PUSH_ARRAY(arena, f32, sm->nodes);
+  f32 *d_L_d_w = PUSH_ARRAY(arena, f32, sm->nodes * sm->input_len);
+
+  for (u64 i = 0; i < sm->nodes; i++) {
+    if (d_L_d_out[i] == 0.0f)
+      continue;
+    target = i;
+    gradient = d_L_d_out[i];
+
+    f32 S = 0.0f;
+    for (u64 n = 0; n < sm->nodes; n++) {
+      t_exp[n] = expf(sm->last_totals[n]);
+      S += t_exp[n];
+    }
+
+    // Gradients of out[i] against totals
+    for (u64 n = 0; n < sm->nodes; n++)
+      d_out_d_t[n] = -(t_exp[target] * t_exp[n]) / (S * S);
+
+    d_out_d_t[target] = (t_exp[target] * (S - t_exp[target])) / (S * S);
+
+    // Gradients of loss against totals
+    for (u64 n = 0; n < sm->nodes; n++)
+      d_L_d_t[n] = gradient * d_out_d_t[n];
+
+    // Weight gradients
+    for (u64 j = 0; j < sm->input_len; j++) {
+      for (u64 n = 0; n < sm->nodes; n++) {
+        d_L_d_w[j * sm->nodes + n] = sm->last_input[j] * d_L_d_t[n];
+      }
+    }
+
+    grad->width = sm->last_width;
+    grad->height = sm->last_height;
+    grad->depth = sm->last_depth;
+
+    for (u64 j = 0; j < sm->input_len; j++) {
+      f32 sum = 0.0f;
+      for (u64 n = 0; n < sm->nodes; n++)
+        sum += sm->weights[j * sm->nodes + n] * d_L_d_t[n];
+      grad->data[j] = sum;
+    }
+
+    for (u64 j = 0; j < sm->input_len * sm->nodes; j++)
+      sm->weights[j] -= lr * d_L_d_w[j];
+    for (u64 j = 0; j < sm->nodes; j++)
+      sm->biases[j] -= lr * d_L_d_t[j];
+
+    break;
+  }
+  return grad;
 }
 
 f32 cross_entropy_loss(f32 *probs, u64 label) { return -logf(probs[label]); }
