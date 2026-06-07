@@ -127,7 +127,7 @@ dataset *load_dataset(char *image_path, char *label_path, mem_arena *arena) {
   u8 *images = PUSH_ARRAY(arena, u8, rows * cols * count);
   fread(images, sizeof(u8), rows * cols * count, image_file);
   u8 *labels = PUSH_ARRAY(arena, u8, label_count);
-  fread(images, sizeof(u8), label_count, label_file);
+  fread(labels, sizeof(u8), label_count, label_file);
 
   data->images = images;
   data->rows = rows;
