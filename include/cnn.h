@@ -52,6 +52,12 @@ typedef struct {
   u64 accuracy;
 } prediction;
 
+typedef struct {
+  u8 *data;
+  u64 width;
+  u64 height;
+} image;
+
 void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
                mem_arena *arena);
 feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
@@ -74,6 +80,9 @@ f32 cross_entropy_loss(f32 *probs, u64 label);
 u64 accuracy(f32 *probs, u64 nodes, u64 label);
 
 void train(conv *conv, softmax *sm, dataset *train_data, mem_arena *arena);
+
+u64 forward_image(conv *conv, softmax *sm, image *img, mem_arena *arena);
+feature_map *conv_forward_image(conv *conv, image *img, mem_arena *arena);
 
 void save_model(conv *conv, softmax *sm);
 int load_model(conv *conv, softmax *sm, mem_arena *arena);

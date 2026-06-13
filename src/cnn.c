@@ -352,6 +352,59 @@ void train(conv *conv, softmax *sm, dataset *train_data, mem_arena *arena) {
   }
 }
 
+u64 forward_image(conv *conv, softmax *sm, image *img, mem_arena *arena) {
+
+  feature_map *fm = conv_forward_image(conv, img, arena);
+  max_pool(2, fm, arena);
+  f32 *probs = softmax_forward(sm, fm, arena);
+
+  u64 prediction = 0;
+  for (u64 i = 1; i < sm->nodes; i++) {
+    if (probs[i] > probs[prediction])
+      prediction = i;
+  }
+
+  return prediction;
+}
+
+feature_map *conv_forward_image(conv *conv, image *img, mem_arena *arena) {
+
+  filter *fltr = &conv->filters[0];
+  u64 out_h = img->height - fltr->height + 1;
+  u64 out_w = img->width - fltr->width + 1;
+  u8 *pixels = img->data;
+  f32 *feature_maps = PUSH_ARRAY(arena, f32, conv->num_filters * out_h * out_w);
+
+  for (u64 f = 0; f < conv->num_filters; f++) {
+    for (u64 y = 0; y < out_h; y++) {
+      for (u64 x = 0; x < out_w; x++) {
+        f32 sum = 0;
+        filter *fltr = &conv->filters[f];
+
+        for (u64 kr = 0; kr < fltr->height; kr++) {
+          for (u64 kc = 0; kc < fltr->width; kc++) {
+
+            f32 pixel =
+                (pixels[(y + kr) * img->width + (x + kc)] / 255.0f) - 0.5f;
+            f32 weight = fltr->data[kr * fltr->width + kc];
+
+            sum += pixel * weight;
+          }
+        }
+
+        feature_maps[(f * out_h * out_w) + y * out_w + x] = sum;
+      }
+    }
+  }
+
+  feature_map *fm = PUSH_STRUCT(arena, feature_map);
+  fm->data = feature_maps;
+  fm->width = out_w;
+  fm->height = out_h;
+  fm->depth = conv->num_filters;
+  return fm;
+}
+
 void save_model(conv *conv, softmax *sm) {
   FILE *f = fopen(MODEL_FILE, "wb");
   if (!f) {

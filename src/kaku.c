@@ -22,6 +22,17 @@ void on_fs_ready(void) {
     save_model(&cn, &sm);
     printf("Training complete, model saved.\n");
   }
+
+  u64 test_index = 23;
+  u8 *img =
+      &train_data->images[test_index * train_data->rows * train_data->cols];
+  u64 label = train_data->labels[test_index];
+  image test_image = {
+      .data = img, .height = train_data->rows, .width = train_data->cols};
+
+  u64 pred = forward_image(&cn, &sm, &test_image, perm_arena);
+  printf("Prediction : %llu\n", pred);
+  printf("Label: %llu\n", label);
 }
 
 int main() {
@@ -45,6 +56,4 @@ int main() {
           Module._on_fs_ready();
         });
   });
-
-  return 0;
 }
