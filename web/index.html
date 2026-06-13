@@ -5,11 +5,129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title></title>
-  <script type="module" src="kaku.js">  </script>
+  <script src="kaku.js">  </script>
 </head>
 
-<body>
+<style>
+  #canvas {
+    border: 1px black solid;
+    display: inline;
+    margin: 1rem;
+  }
 
+  #array {
+    display: grid;
+    grid-template-columns: repeat(28, 10px);
+    grid-template-rows: repeat(28, 10px);
+    font-family: monospace;
+    font-size: 8px;
+    white-space: pre;
+  }
+</style>
+
+<body>
+  <canvas id="canvas"></canvas>
+  <button onclick="clearCanvas()">clear</button>
+  <div id="array"></div>
+  <h2 id="prediction"></h2>
 </body>
+
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = 300;
+  canvas.height = 300;
+  ctx.strokeStyle = "black"
+  ctx.fillStyle = "white"
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 15
+  ctx.lineCap = "round";
+
+  let x = 0;
+  let y = 0;
+  let isMouseDown = false;
+
+  const stopDrawing = () => {
+    isMouseDown = false;
+    const image = getImage();
+    showArray(image);
+    sendImage(image);
+  }
+  const startDrawing = (e) => {
+    isMouseDown = true;
+    [x, y] = [e.offsetX, e.offsetY];
+  }
+
+  const drawline = (e) => {
+    if (isMouseDown) {
+      const newX = e.offsetX;
+      const newY = e.offsetY;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(newX, newY);
+      ctx.stroke();
+      x = newX;
+      y = newY;
+    }
+  }
+
+
+  function getImage() {
+    const w = 28;
+    const h = 28
+    const resizedCanvas = document.createElement('canvas');
+    resizedCanvas.width = w;
+    resizedCanvas.height = h;
+
+    const res_ctx = resizedCanvas.getContext('2d');
+    res_ctx.drawImage(canvas, 0, 0, w, h);
+
+    const image = new Uint8Array(w * h);
+    const imgData = res_ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < w; c++) {
+        const index = (r * w + c) * 4;
+        const gray =
+          0.2126 * data[index]
+          + 0.7162 * data[index + 1]
+          + 0.0722 * data[index + 2];
+        image[r * w + c] = 255 - gray;
+      }
+    }
+    return image;
+  }
+
+  function showArray(image) {
+    let output = "";
+    for (let r = 0; r < 28; r++) {
+      for (let c = 0; c < 28; c++) {
+        const value = image[r * 28 + c];
+        output += value.toString().padStart(3, " ");
+      }
+      output += "\n";
+    }
+    document.getElementById("array").textContent = output;
+  }
+
+  function sendImage(image) {
+    const ptr = Module._malloc(28 * 28);
+    Module.HEAPU8.set(image, ptr);
+
+    const result = Module.ccall("predict", "number", ["number"], [ptr])
+    document.getElementById("prediction").textContent = result;
+    Module._free(ptr);
+  }
+
+  function clearCanvas() {
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    document.getElementById("array").textContent = "";
+  }
+
+  canvas.addEventListener('mousedown', startDrawing);
+  canvas.addEventListener('mousemove', drawline);
+  canvas.addEventListener('mouseup', stopDrawing);
+  canvas.addEventListener('mouseout', stopDrawing);
+</script>
 
 </html>

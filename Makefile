@@ -9,8 +9,8 @@ LDFLAGS := \
 					 -sWASM=1 \
 					 --preload-file dataset \
 					 -sALLOW_MEMORY_GROWTH \
-					 -sEXPORTED_FUNCTIONS=_main,_on_fs_ready \
-					 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+					 -sEXPORTED_FUNCTIONS=_main,_on_fs_ready,_malloc,_predict,_free \
+					 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8 \
 					 -sASSERTIONS=2 \
 					 -sSTACK_OVERFLOW_CHECK=2 \
 					 -lidbfs.js

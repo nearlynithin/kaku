@@ -3,6 +3,7 @@
 #include "data.h"
 #include <emscripten.h>
 #include <emscripten/em_asm.h>
+#include <emscripten/em_macros.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -33,6 +34,12 @@ void on_fs_ready(void) {
   u64 pred = forward_image(&cn, &sm, &test_image, perm_arena);
   printf("Prediction : %llu\n", pred);
   printf("Label: %llu\n", label);
+}
+
+EMSCRIPTEN_KEEPALIVE
+u64 predict(u8 *data) {
+  image img = {.data = data, .width = 28, .height = 28};
+  return forward_image(&cn, &sm, &img, perm_arena);
 }
 
 int main() {
