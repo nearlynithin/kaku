@@ -30,11 +30,17 @@ int main() {
     arena_clear(temp_arena);
 
     u64 label = train_data->labels[i];
-    prediction p = forward(&conv, &sm, train_data, i, label, temp_arena);
+    feature_map *fm = conv_forward(&conv, train_data, temp_arena, i);
+    max_pool(2, fm, temp_arena);
+    f32 *probs = softmax_forward(&sm, fm, temp_arena);
+    prediction p = {.probabilites = probs,
+                    .loss = cross_entropy_loss(probs, label),
+                    .accuracy = accuracy(probs, 10, label)};
     f32 *gradient = PUSH_ARRAY(temp_arena, f32, sm.nodes);
     gradient[label] = -1.0f / p.probabilites[label];
-    (void)softmax_backprop(&sm, gradient, 0.005f, temp_arena);
-
+    feature_map *grad = softmax_backprop(&sm, gradient, 0.005f, temp_arena);
+    grad = max_pool_backprop(2, fm, grad, temp_arena);
+    conv_backprop(&conv, grad, 0.005f, temp_arena);
     loss += p.loss;
     num_correct += p.accuracy;
 
