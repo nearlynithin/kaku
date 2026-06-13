@@ -4,6 +4,9 @@
 #include "arena.h"
 #include "data.h"
 
+#define SAVE_DIR "/save"
+#define MODEL_FILE "/save/model.bin"
+
 typedef struct {
   f32 *data;
   u64 width;
@@ -69,5 +72,10 @@ feature_map *softmax_backprop(softmax *sm, f32 *d_L_d_out, f32 lr,
 
 f32 cross_entropy_loss(f32 *probs, u64 label);
 u64 accuracy(f32 *probs, u64 nodes, u64 label);
+
+void train(conv *conv, softmax *sm, dataset *train_data, mem_arena *arena);
+
+void save_model(conv *conv, softmax *sm);
+int load_model(conv *conv, softmax *sm, mem_arena *arena);
 
 #endif

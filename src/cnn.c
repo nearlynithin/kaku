@@ -1,7 +1,10 @@
 #include "cnn.h"
 #include "arena.h"
+#include <emscripten.h>
+#include <emscripten/em_asm.h>
 #include <float.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -314,4 +317,98 @@ u64 accuracy(f32 *probs, u64 nodes, u64 label) {
   }
 
   return (best == label) ? 1 : 0;
+}
+
+void train(conv *conv, softmax *sm, dataset *train_data, mem_arena *arena) {
+
+  f32 loss = 0.0f;
+  u64 num_correct = 0;
+
+  for (u64 i = 0; i < train_data->count; i++) {
+    arena_clear(arena);
+
+    u64 label = train_data->labels[i];
+    feature_map *fm = conv_forward(conv, train_data, arena, i);
+    max_pool(2, fm, arena);
+    f32 *probs = softmax_forward(sm, fm, arena);
+    prediction p = {.probabilites = probs,
+                    .loss = cross_entropy_loss(probs, label),
+                    .accuracy = accuracy(probs, 10, label)};
+    f32 *gradient = PUSH_ARRAY(arena, f32, sm->nodes);
+    gradient[label] = -1.0f / p.probabilites[label];
+    feature_map *grad = softmax_backprop(sm, gradient, 0.005f, arena);
+    grad = max_pool_backprop(2, fm, grad, arena);
+    conv_backprop(conv, grad, 0.005f, arena);
+    loss += p.loss;
+    num_correct += p.accuracy;
+
+    if (i % 100 == 99) {
+      printf(
+          "[Step %llu] Past 100 steps: Average Loss : %f | Accuracy : %llu\n",
+          i + 1, (f32)loss / 100, num_correct);
+      loss = 0.0f;
+      num_correct = 0;
+    }
+  }
+}
+
+void save_model(conv *conv, softmax *sm) {
+  FILE *f = fopen(MODEL_FILE, "wb");
+  if (!f) {
+    printf("Failed to open %s", MODEL_FILE);
+    return;
+  }
+
+  // write conv
+  fwrite(&conv->num_filters, sizeof(u64), 1, f);
+  for (u64 i = 0; i < conv->num_filters; i++) {
+    fwrite(conv->filters[i].data, sizeof(f32),
+           conv->filters[i].width * conv->filters[i].height, f);
+  }
+
+  // write softmax
+  fwrite(&sm->input_len, sizeof(u64), 1, f);
+  fwrite(&sm->nodes, sizeof(u64), 1, f);
+  fwrite(sm->weights, sizeof(f32), sm->input_len * sm->nodes, f);
+  fwrite(&sm->biases, sizeof(f32), sm->nodes, f);
+
+  fclose(f);
+  EM_ASM({
+    if (Module.__syncing)
+      return;
+    Module.__syncing = true;
+
+    FS.syncfs(function(err) {
+      Module.__syncing = false;
+      if (err)
+        console.log(err);
+    });
+  });
+}
+
+int load_model(conv *conv, softmax *sm, mem_arena *arena) {
+  FILE *f = fopen(MODEL_FILE, "rb");
+  if (!f) {
+    return 0;
+  }
+
+  // read conv
+  fread(&conv->num_filters, sizeof(u64), 1, f);
+  for (u64 i = 0; i < conv->num_filters; i++) {
+    fread(conv->filters[i].data, sizeof(f32),
+          conv->filters[i].width * conv->filters[i].height, f);
+  }
+
+  // read softmax
+  fread(&sm->input_len, sizeof(u64), 1, f);
+  fread(&sm->nodes, sizeof(u64), 1, f);
+
+  sm->weights = PUSH_ARRAY(arena, f32, sm->input_len * sm->nodes);
+  sm->biases = PUSH_ARRAY(arena, f32, sm->nodes);
+
+  fread(sm->weights, sizeof(f32), sm->input_len * sm->nodes, f);
+  fread(sm->biases, sizeof(f32), sm->nodes, f);
+
+  fclose(f);
+  return 1;
 }

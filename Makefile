@@ -9,10 +9,11 @@ LDFLAGS := \
 					 -sWASM=1 \
 					 --preload-file dataset \
 					 -sALLOW_MEMORY_GROWTH \
-					 -sEXPORTED_FUNCTIONS=_main \
+					 -sEXPORTED_FUNCTIONS=_main,_on_fs_ready \
 					 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
 					 -sASSERTIONS=2 \
-					 -sSTACK_OVERFLOW_CHECK=2
+					 -sSTACK_OVERFLOW_CHECK=2 \
+					 -lidbfs.js
 
 BUILD := build
 TARGET := kaku
