@@ -3,6 +3,7 @@
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 f32 random_weight() {
   f32 r = (f32)rand() / (f32)RAND_MAX;
@@ -32,6 +33,8 @@ void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
 feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
                           u64 image_index) {
 
+  conv->last_data = data;
+  conv->last_image_index = image_index;
   u64 out_h = data->rows - 2;
   u64 out_w = data->cols - 2;
   f32 *feature_maps = PUSH_ARRAY(arena, f32, conv->num_filters * out_h * out_w);
@@ -53,6 +56,43 @@ feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
   return fm;
 }
 
+void conv_backprop(conv *conv, feature_map *d_L_d_out, f32 lr,
+                   mem_arena *arena) {
+  dataset *data = conv->last_data;
+  u64 image_index = conv->last_image_index;
+
+  u64 filter_size = conv->filters[0].width * conv->filters[0].height;
+  f32 *filter_grad = PUSH_ARRAY(arena, f32, filter_size);
+  for (u64 f = 0; f < conv->num_filters; f++) {
+
+    memset(filter_grad, 0, filter_size * sizeof(f32));
+
+    for (u64 y = 0; y < d_L_d_out->height; y++) {
+      for (u64 x = 0; x < d_L_d_out->width; x++) {
+
+        f32 gradient =
+            d_L_d_out->data[f * d_L_d_out->width * d_L_d_out->height +
+                            y * d_L_d_out->width + x];
+
+        u8 *image = data->images + image_index * data->rows * data->cols;
+
+        for (u64 kr = 0; kr < conv->filters[f].height; kr++) {
+          for (u64 kc = 0; kc < conv->filters[f].height; kc++) {
+            f32 pixel =
+                (image[(y + kr) * data->cols + (x + kc)] / 255.0f) - 0.5f;
+
+            filter_grad[kr * conv->filters[f].width + kc] += gradient * pixel;
+          }
+        }
+      }
+    }
+
+    for (u64 i = 0; i < conv->filters[f].width * conv->filters[f].height; i++) {
+      conv->filters[f].data[i] -= lr * filter_grad[i];
+    }
+  }
+}
+
 f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y) {
   f32 sum = 0;
 
@@ -70,7 +110,14 @@ f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y) {
   return sum;
 }
 
-void max_pool(u64 n, feature_map *fm) {
+void max_pool(u64 n, feature_map *fm, mem_arena *arena) {
+
+  fm->last_input = fm->data;
+  fm->data = PUSH_ARRAY(arena, f32, fm->width * fm->height * fm->depth);
+
+  fm->last_width = fm->width;
+  fm->last_height = fm->height;
+  fm->last_depth = fm->depth;
 
   u64 out_w = fm->width / 2;
   u64 out_h = fm->height / 2;
@@ -86,8 +133,8 @@ void max_pool(u64 n, feature_map *fm) {
             u64 in_r = r + pr;
             u64 in_c = c + pc;
 
-            f32 value = fm->data[(d * fm->width * fm->height) +
-                                 in_r * fm->width + in_c];
+            f32 value = fm->last_input[(d * fm->width * fm->height) +
+                                       in_r * fm->width + in_c];
             if (value > max)
               max = value;
           }
@@ -101,6 +148,49 @@ void max_pool(u64 n, feature_map *fm) {
   }
   fm->width = out_w;
   fm->height = out_h;
+}
+
+feature_map *max_pool_backprop(u64 n, feature_map *fm, feature_map *d_L_d_out,
+                               mem_arena *arena) {
+  feature_map *grad = PUSH_STRUCT(arena, feature_map);
+  grad->width = fm->last_width;
+  grad->height = fm->last_height;
+  grad->depth = fm->last_depth;
+  grad->data = PUSH_ARRAY(arena, f32, grad->width * grad->height * grad->depth);
+
+  for (u64 d = 0; d < grad->depth; d++) {
+    for (u64 r = 0; r < grad->height; r += n) {
+      for (u64 c = 0; c < grad->width; c += n) {
+
+        f32 max = -FLT_MAX;
+        u64 max_r = 0;
+        u64 max_c = 0;
+        for (u64 pr = 0; pr < n; pr++) {
+          for (u64 pc = 0; pc < n; pc++) {
+
+            u64 in_r = r + pr;
+            u64 in_c = c + pc;
+
+            f32 value = fm->last_input[(d * grad->width * grad->height) +
+                                       in_r * grad->width + in_c];
+            if (value > max) {
+              max = value;
+              max_r = in_r;
+              max_c = in_c;
+            }
+          }
+        }
+
+        u64 out_index = (d * fm->width * fm->height) +
+                        (u64)(r / n) * fm->width + (u64)(c / n);
+        f32 incoming = d_L_d_out->data[out_index];
+
+        grad->data[d * grad->width * grad->height + max_r * grad->width +
+                   max_c] = incoming;
+      }
+    }
+  }
+  return grad;
 }
 
 void softmax_init(softmax *sm, u64 input_len, u64 nodes, mem_arena *arena) {
@@ -224,19 +314,4 @@ u64 accuracy(f32 *probs, u64 nodes, u64 label) {
   }
 
   return (best == label) ? 1 : 0;
-}
-
-prediction forward(conv *conv, softmax *sm, dataset *data, u64 image_index,
-                   u64 label, mem_arena *arena) {
-
-  feature_map *fm = conv_forward(conv, data, arena, image_index);
-  max_pool(2, fm);
-  f32 *probs = softmax_forward(sm, fm, arena);
-
-  prediction p;
-  p.probabilites = probs;
-  p.loss = cross_entropy_loss(probs, label);
-  p.accuracy = accuracy(probs, 10, label);
-
-  return p;
 }

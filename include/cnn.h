@@ -13,6 +13,9 @@ typedef struct {
 typedef struct {
   filter *filters;
   u64 num_filters;
+
+  dataset *last_data;
+  u64 last_image_index;
 } conv;
 
 typedef struct {
@@ -20,6 +23,11 @@ typedef struct {
   u64 width;
   u64 height;
   u64 depth;
+
+  f32 *last_input;
+  u64 last_width;
+  u64 last_height;
+  u64 last_depth;
 } feature_map;
 
 typedef struct {
@@ -41,17 +49,18 @@ typedef struct {
   u64 accuracy;
 } prediction;
 
-prediction forward(conv *conv, softmax *sm, dataset *data, u64 image_index,
-                   u64 label, mem_arena *arena);
-
 void conv_init(conv *conv, u64 width, u64 height, u64 num_filters,
                mem_arena *arena);
 feature_map *conv_forward(conv *conv, dataset *data, mem_arena *arena,
                           u64 image_index);
+void conv_backprop(conv *conv, feature_map *d_L_d_out, f32 lr,
+                   mem_arena *arena);
 
 f32 sum_region(filter *f, dataset *data, u64 image_index, u64 x, u64 y);
 
-void max_pool(u64 n, feature_map *fm);
+void max_pool(u64 n, feature_map *fm, mem_arena *arena);
+feature_map *max_pool_backprop(u64 n, feature_map *fm, feature_map *d_L_d_out,
+                               mem_arena *arena);
 
 void softmax_init(softmax *sm, u64 input_len, u64 nodes, mem_arena *arena);
 f32 *softmax_forward(softmax *sm, feature_map *fm, mem_arena *arena);
