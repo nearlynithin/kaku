@@ -6,30 +6,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title></title>
   <script src="kaku.js">  </script>
+  <link rel="stylesheet" href="styles.css">
 </head>
 
-<style>
-  #canvas {
-    border: 1px black solid;
-    display: inline;
-    margin: 1rem;
-  }
-
-  #array {
-    display: grid;
-    grid-template-columns: repeat(28, 10px);
-    grid-template-rows: repeat(28, 10px);
-    font-family: monospace;
-    font-size: 8px;
-    white-space: pre;
-  }
-</style>
-
 <body>
-  <canvas id="canvas"></canvas>
-  <button onclick="clearCanvas()">clear</button>
-  <div id="array"></div>
-  <h2 id="prediction"></h2>
+  <header>
+    <p class="eyebrow">Convolutional Neural network · MNIST</p>
+    <h1>Digit wo <em>kaku</em></h1>
+    <div class="rule"></div>
+  </header>
+
+  <div class="workspace">
+
+    <div class="canvas-panel">
+      <span class="canvas-label">Input canvas</span>
+      <div class="canvas-frame" id="canvasFrame">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="canvas-actions">
+        <button onclick="clearCanvas()">↺ Clear</button>
+      </div>
+    </div>
+
+    <div class="result-panel">
+      <div class="prediction-card">
+        <p class="pred-label">Prediction</p>
+        <div id="prediction">
+          <span class="placeholder-digit">?</span>
+        </div>
+      </div>
+      <p class="hint">Input Array</p>
+      <div id="array"></div>
+    </div>
+
+  </div>
+
 </body>
 
 <script>
